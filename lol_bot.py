@@ -9,46 +9,16 @@
 # Licence:     <your licence>
 #-------------------------------------------------------------------------------
 
-#
-#JIDTONAME FILE auto add!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 import xmpp
 import threading
 import os
 import sys
 import lol_api
 import aiml
+from chatterbotapi import ChatterBotFactory, ChatterBotType
 
-BOT = aiml.Kernel()
-
-#ALICE
-##base_path = "D:\\Dropbox\\Coding\\Python Codes\\General\\AIML REPO\\Social-Robot"
-##r = os.listdir(base_path)
-##r = [base_path + '\\' + a for a in r if '.aiml' in a]
-##for path in r:
-##    BOT.learn(path)
-
-#STANDARD
-#BOT.loadBrain("standard.brn")
-
-##os.chdir("D:\Dropbox\Coding\Python Codes\General\AIML REPO")
-##BOT.learn("std-startup.xml")
-##BOT.respond("load aiml b")
-####BOT.learn("blackjack.aiml")
-##BOT.learn("bornin.aiml")
-##BOT.learn("jokes.aiml")
-####BOT.learn("howmany.aiml")
-##BOT.learn("maths.aiml")
-
-
-
-BOT.setBotPredicate("name","LeastBot")
-BOT.setBotPredicate("master","LeastAction")
-
-##BOT.saveBrain("standard.brn")
-
-api_queue = 0
-RiotAPI = lol_api.RiotAPI()
 JIDTONAME_PATH = os.path.join(os.getcwd(),'JIDtoName.txt')
+PASS_PATH = os.path.join(os.getcwd(),'lol_pass.txt')
 
 STATUS_MSG = "<body>\
     <profileIcon>0</profileIcon>\
@@ -66,19 +36,29 @@ STATUS_MSG = "<body>\
     <statusMsg>!help for information</statusMsg>\
     </body>"
 
-CONN_ERROR = 'error'
-roster = None
-api_queue = 0
+class RiotServers():
+    BR = 'br'
+    EUN = 'eun1'
+    EUW = 'eu'
+    NA = 'na1'
+    KR = 'kr'
+    OCE = 'oc1'
+    RU = 'ru'
+    TR = 'tr'
 
+class ChatterBots():
+    def __init__(self):
+        self.factory = ChatterBotFactory()
+        self.jabberwacky = self.factory.create(ChatterBotType.JABBERWACKY)
+        self.conversations = {}
 
+    def respond(self,question, conversation_id):
+        try:
+            self.conversations[conversation_id]
+        except KeyError:
+            self.conversations[conversation_id] = self.jabberwacky.create_session()
 
-def apiqueuetimer(): #function for resetting the queue every 10 seconds
-    global api_queue
-    #print 'api queue reset'
-    if api_queue != 0:
-        print 'API QUEUE: ' + str(api_queue)
-    api_queue = 0
-    threading.Timer(10,apiqueuetimer).start()
+        return self.conversations[conversation_id].think(question)
 
 def load_text(path):
     text_file = open(path, "r")
@@ -89,124 +69,129 @@ def load_text(path):
         i+=1
     return lines
 
-def connect():
-    global roster
-    apiqueuetimer()
-    username = 'LeastBot'
-    passwd = "AIR_" + open(os.path.join(os.getcwd(),'lol_pass.txt'), "r").readline()
-    client = xmpp.Client('pvp.net',debug=[])
-    if client.connect(server=('chat.na1.lol.riotgames.com', 5223)) == "":
-        print "connect failed."
-        return
-    if client.auth(username, passwd, "xiff") == None:
-        print "auth failed."
-        return
-    if client.isConnected():
-        client.sendInitPresence(requestRoster=1)
-        pres = xmpp.Presence(show='chat')
-        pres.setStatus(STATUS_MSG)
-        client.send(pres)
+class LeastBot():
+    RiotAPI = lol_api.RiotAPI(verbosity=1)
+    def __init__(self, username='LeastBot', password="AIR_" + open(PASS_PATH, "r").readline(), server = RiotServers.NA, port = 5223):
+        self.username =  username
+        self.password = password
+        self.client = None
+        self.server = 'chat.{0}.lol.riotgames.com'.format(server)
+        self.port = port
+        self.bot = ChatterBots()
+        self.config = {'autoaccept':True,
+                        'debug':[],
+                        }
+        self.listening = True
+
+    def connect(self):
+        self.client = xmpp.Client('pvp.net',debug=self.config['debug'])
+        if self.client.connect(server=(self.server, self.port)) == "":
+            print "connect failed."
+            self.client = None
+            return
+        if self.client.auth(self.username, self.password, "xiff") == None:
+            print "auth failed."
+            self.client = None
+            return
+        if self.client.isConnected():
+            self.client.sendInitPresence(requestRoster=1)
+            pres = xmpp.Presence(show='chat')
+            pres.setStatus(STATUS_MSG)
+            self.client.send(pres)
+
+        print 'Connected to {0} as {1}'.format(self.server,self.username)
+
+        messageHandler = CheckMessages(self.client, self, self.config['autoaccept'])
+        self.client.RegisterHandler('presence', messageHandler.presence_update)
+        self.client.RegisterHandler('message', messageHandler.message_update)
 
 
-        incoming_thread = CheckMessages(client)
-##        incoming_thread.setDaemon(True)
-##        incoming_thread.start()
-
-        client.RegisterHandler('presence', incoming_thread.presence_update)
-        client.RegisterHandler('message', incoming_thread.message_update)
-        roster = client.getRoster()
-        print "--------------------------------------------------------------------------------------------------"
-
+    def listen(self):
+        self.listening = True
         while True:
-            if client.isConnected():    #Check connection on each loop
-                try:
-                    client.Process(10)
-                except KeyboardInterrupt:
-                    client.disconnect()
+            if self.client.isConnected():    #Check connection on each loop
+                if self.listening:
+                    try:
+                        self.client.Process(10)
+                    except KeyboardInterrupt:
+                        self.client.disconnect()
+                        break
+                else:
+                    print 'Stopped listening'
                     break
             else:
                 print 'DISCONNECTED'
                 break
 
-def send_friend_request(jid, client):
-    pres = xmpp.protocol.Presence(to=jid,typ='subscribed') #ex. jid = 'sum28373870@pvp.net'
-    client.send(pres)
-##    r = client.getRoster()
-##    r.Subscribe('sum28373870@pvp.net')
+    def accept_friend_request(self,jid):
+        pres = xmpp.protocol.Presence(to=jid,typ='subscribed') #ex. jid = 'sum28373870@pvp.net'
+        self.client.send(pres)
 
-def get_runes(user):
+    def send_friend_request(self,jid):
+        r = self.client.getRoster()
+        r.Subscribe(jid)
 
-    def add(vec1,vec2):
-        res = []
-        for i in range(len(vec1)):
-            res.append(vec1[i]+vec2[i])
+    def get_runes(self,user):
 
-        return res
+        def add(vec1,vec2):
+            res = []
+            for i in range(len(vec1)):
+                res.append(vec1[i]+vec2[i])
 
-    global api_queue
-    name = user.replace(" ","")
-    print 'Get Runes: ' + name
-    try:
-        while (1):
-            if api_queue <= 7:
-                json_dict = RiotAPI.get_summoner_by_name(name)
-                id = str(json_dict[name.lower()]['id'])
-                runes = RiotAPI.get_summoner_runes(id)
-                for page in runes[id]['pages']:
-                    if page['current'] == True:
-                        slots = page['slots'] #runeSlotId RuneId
-                        #have RUNES constnt in lol_api, compare runes to get descriptions, possibly multiply numbers beforehand to get a nice format to read
-                        slot_type = {} #red,blue,yellow,quint
-                        for r in slots:
-                            try:
-                                slot_type[lol_api.RUNES[r['runeId']]['description']]
-                                slot_type[lol_api.RUNES[r['runeId']]['description']] = add(lol_api.RUNES[r['runeId']]['numbers'],slot_type[lol_api.RUNES[r['runeId']]['description']])
-                            except KeyError:
-                                slot_type[lol_api.RUNES[r['runeId']]['description']] = lol_api.RUNES[r['runeId']]['numbers']
+            return res
 
-                #create response
-                reply = user + "\'s runes:"
-                for rune in slot_type:
-                    text = rune.format(*slot_type[rune])
-                    reply = reply + '\n' + text
-                api_queue += 2
-                break
-    except ValueError:
-        reply = 'User Not Found.'
-    return reply
+        name = user.replace(" ","")
+        print 'Get Runes: ' + name
+        try:
+            json_dict = self.RiotAPI.get_summoner_by_name(name)
+            id = str(json_dict[name.lower()]['id'])
+            runes = self.RiotAPI.get_summoner_runes(id)
+            for page in runes[id]['pages']:
+                if page['current'] == True:
+                    slots = page['slots'] #runeSlotId RuneId
+                    #have RUNES constnt in lol_api, compare runes to get descriptions, possibly multiply numbers beforehand to get a nice format to read
+                    slot_type = {} #red,blue,yellow,quint
+                    for r in slots:
+                        try:
+                            slot_type[lol_api.RUNES[r['runeId']]['description']]
+                            slot_type[lol_api.RUNES[r['runeId']]['description']] = add(lol_api.RUNES[r['runeId']]['numbers'],slot_type[lol_api.RUNES[r['runeId']]['description']])
+                        except KeyError:
+                            slot_type[lol_api.RUNES[r['runeId']]['description']] = lol_api.RUNES[r['runeId']]['numbers']
 
+            #create response
+            reply = user + "\'s runes:"
+            for rune in slot_type:
+                text = rune.format(*slot_type[rune])
+                reply = reply + '\n' + text
 
-def get_rank(user):
-    global api_queue
-    try:
-        while (1):
-            if api_queue <= 7:
-                reply = user + " is:\n" + RiotAPI.get_stuff(user)
-                api_queue += 3
-                break
-    except ValueError:
-        reply = 'User Not Found.'
-    return reply
+        except ValueError:
+            reply = 'User Not Found.'
+        return reply
 
-class CheckMessages(threading.Thread):
+    def get_rank(self,user):
+        try:
+            reply = user + " is:\n" + self.RiotAPI.get_stuff(user)
+        except ValueError:
+            reply = 'User Not Found.'
+        return reply
+
+class CheckMessages():
     """
     Constantly check for network data in a separate thread.
     """
-    def __init__(self, conn):
-        threading.Thread.__init__(self)
+    def __init__(self, conn, leastbot, autoaccept=False):
         self.conn = conn
-        self.user_length = 0
         self.alive_users = []
         self.conversations = {}
-        self.first_run = True
-        self.configAutoAccept = True
+        self.leastbot = leastbot
+        self.configAutoAccept = self.leastbot.config['autoaccept']
 
     def get_name(self, msg_from):
         roster = self.conn.getRoster()
         received_from = None
-        for user in self.alive_users:
-            if str(user) == str(msg_from):
-                received_from = roster.getName(user)
+##        for user in self.alive_users:
+##            if str(user) == str(msg_from):
+##                received_from = roster.getName(user)
 
         if not received_from:
             received_from = '#:#BLANK#:#'
@@ -288,16 +273,15 @@ class CheckMessages(threading.Thread):
             print 'Pending Invites'
 
             if self.configAutoAccept:
-                send_friend_request(str(msg.getFrom()), self.conn)
+                self.leastbot.accept_friend_request(str(msg.getFrom()))
                 received_from = self.get_name(msg.getFrom())
                 if received_from == '#:#BLANK#:#':
                     jid = str(msg.getFrom()) + '/xiff'
                     id = jid[3:jid.find('@')]
-                    received_from = RiotAPI.get_summoner_by_id(id)[id]['name']
+                    received_from = LeastBot.RiotAPI.get_summoner_by_id(id)[id]['name']
+                    with open(JIDTONAME_PATH, "a") as myfile:
+                        myfile.write('\n'+jid+'|'+received_from)
                 print 'Subscribed to: ' + received_from
-
-
-
 
         elif str(msg.getType()) == "unavailable":
             received_from = self.get_name(msg.getFrom())
@@ -309,7 +293,8 @@ class CheckMessages(threading.Thread):
         Receive and process jabber messages.
         """
         received_from = self.get_name(msg.getFrom())
-        status_msg = str(msg.getBody())
+        status_msg = str(msg.getBody().encode('ascii', 'ignore'))
+        #status_msg = str(msg.getBody())
 
 
         endpoint = status_msg.find("</gameType>")
@@ -317,57 +302,28 @@ class CheckMessages(threading.Thread):
             startpoint = status_msg.find("<gameType>") + 10
             print "#:#gameinvite#:#%s:%s" % (received_from, status_msg[startpoint:endpoint])
         else:
-            print "#:#message#:#%s:%s: %s" % (str(msg.getFrom()),received_from, str(msg.getBody()))
+            print "#:#message#:#%s:%s: %s" % (str(msg.getFrom()),received_from, status_msg)
 
         if status_msg == '!help':
             reply = 'To lookup summoner info use: ![SummonerName]\nTo lookup current runes use: !runes [SummonerName]\nOtherwise just talk to the bot, it\'s lonely.'
+        elif status_msg == '!CLOSE' and received_from == 'LeastAction':
+            self.leastbot.listening = False
+            reply = 'Stopping'
         elif status_msg[0:7] == '!runes ':
             name = status_msg.split(" ",1)[1]
-            reply = get_runes(name)
+            reply = self.leastbot.get_runes(name)
         elif status_msg[0] == '!':
-            reply = get_rank(status_msg[1:])
+            reply = self.leastbot.get_rank(status_msg[1:])
         else:
-            #reply = BOT.respond(status_msg,received_from)
-            reply = 'Echo mode on cause bot is an idiot: ' + status_msg
+            reply = self.leastbot.bot.respond(status_msg,received_from)
+            #reply = 'Echo mode on cause bot is an idiot: ' + status_msg
 
         print '#:#SENT#:# ' + reply
         reply = msg.buildReply(reply)
         reply.setType("chat")
         conn.send(reply)
 
-    def step_on(self):
-        """
-        Keep the connection alive and process network data on an interval.
-        """
-
-        if self.conn.isConnected():
-            try:
-                self.conn.Process(1)
-                roster = self.conn.getRoster()
-
-                if self.user_length != len(self.alive_users):
-                    print "#:#clearfriends#:#"
-                    for user in self.alive_users:
-                        if roster.getName(user) != None:
-                            print "#:#friendupdate#:#%s" % roster.getName(user)
-                    for user in roster.getItems():
-                        if ((roster.getName(user) != None) and ((str(user)+'/xiff') not in self.alive_users)):
-                            print "#:#friendupdateoff#:#%s" % roster.getName(user)
-                self.user_length = len(self.alive_users)
-            except:
-                print CONN_ERROR
-                return 0
-        else:
-            print CONN_ERROR
-            return 0
-        return 1
-
-    def run(self):
-        """
-        Maintain iteration while the connection exists.
-        """
-
-        while self.step_on():
-            pass
-
-connect()
+if __name__ == '__main__':
+    l = LeastBot()
+    l.connect()
+    l.listen()
