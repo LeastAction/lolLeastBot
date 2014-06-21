@@ -16,6 +16,8 @@ import sys
 import lol_api
 import aiml
 from chatterbotapi import ChatterBotFactory, ChatterBotType
+from colorama import init, Fore
+init()
 
 JIDTONAME_PATH = os.path.join(os.getcwd(),'JIDtoName.txt')
 PASS_PATH = os.path.join(os.getcwd(),'lol_pass.txt')
@@ -210,6 +212,7 @@ class CheckMessages():
         """
         Receive and process jabber presence updates.
         """
+        print Fore.YELLOW
         if str(msg.getType()) not in ["unavailable",'subscribe','unsubscribe']:
             if str(msg.getFrom()) not in self.alive_users:
                 self.alive_users.append(str(msg.getFrom()))
@@ -247,7 +250,7 @@ class CheckMessages():
                     elif status_msg[startpoint:endpoint] == 'inQueue':
                         print "#:#gameupdate#:#%s:%s" % (received_from, 'In Queue')
                     elif status_msg[startpoint:endpoint] == 'outOfGame':
-                        print "#:#gameupdate#:#%s:%s" % (received_from, 'Online')
+                        print Fore.MAGENTA + "#:#gameupdate#:#%s:%s" % (received_from, 'Online')
                     elif status_msg[startpoint:endpoint] == 'hostingPracticeGame':
                         print "#:#gameupdate#:#%s:%s" % (received_from, 'Hosting a Practice Game')
                     elif status_msg[startpoint:endpoint] == 'championSelect':
@@ -285,13 +288,14 @@ class CheckMessages():
 
         elif str(msg.getType()) == "unavailable":
             received_from = self.get_name(msg.getFrom())
-            print "#:#removefriend#:#%s" % received_from
+            print Fore.RED + "#:#removefriend#:#%s" % received_from
             self.alive_users.remove(str(msg.getFrom()))
 
     def message_update(self, conn, msg):
         """
         Receive and process jabber messages.
         """
+        print Fore.GREEN
         received_from = self.get_name(msg.getFrom())
         status_msg = str(msg.getBody().encode('ascii', 'ignore'))
         #status_msg = str(msg.getBody())
@@ -318,7 +322,7 @@ class CheckMessages():
             reply = self.leastbot.bot.respond(status_msg,received_from)
             #reply = 'Echo mode on cause bot is an idiot: ' + status_msg
 
-        print '#:#SENT#:# ' + reply
+        print Fore.WHITE + '#:#SENT#:# ' + reply
         reply = msg.buildReply(reply)
         reply.setType("chat")
         conn.send(reply)

@@ -105,8 +105,9 @@ class RiotAPI(object):
 
         if not rank:
             rank = 'UNRANKED'
-
-        reply = rank + '\n' + 'Level: ' + level
+        reply = rank
+        if level < 30:
+            reply = reply + '\n' + 'Level: ' + level
 
         ##CHAMPION##
         json_dict = self.get_stats_ranked(id)
