@@ -1,14 +1,17 @@
-sum55806649@pvp.net/xiff|LeastBot
-sum28373870@pvp.net/xiff|FeedzMeh
-sum21305918@pvp.net/xiff|Best Nid Shot NA
-sum24805089@pvp.net/xiff|BasicallyFaker
-sum26233792@pvp.net/xiff|sheiroslav41
-sum20481987@pvp.net/xiff|jetgatling
-sum45180415@pvp.net/xiff|zombielicious
-sum24080887@pvp.net/xiff|CosmicGator
-sum29259774@pvp.net/xiff|TehTrouserSnake
-sum26202814@pvp.net/xiff|LeastAction
-sum24416410@pvp.net/xiff|goldbagel
-sum25834042@pvp.net/xiff|Crimefox
-sum28673933@pvp.net/xiff|MostAction
-sum24617208@pvp.net/xiff|Evangelinos
+sum55806649@pvp.net|LeastBot
+sum28373870@pvp.net|FeedzMeh
+sum21305918@pvp.net|Best Nid Shot NA
+sum24805089@pvp.net|BasicallyFaker
+sum26233792@pvp.net|sheiroslav41
+sum20481987@pvp.net|jetgatling
+sum45180415@pvp.net|zombielicious
+sum24080887@pvp.net|CosmicGator
+sum29259774@pvp.net|TehTrouserSnake
+sum26202814@pvp.net|LeastAction
+sum24416410@pvp.net|goldbagel
+sum25834042@pvp.net|Crimefox
+sum28673933@pvp.net|MostAction
+sum24617208@pvp.net|Evangelinos
+sum26715535@pvp.net|s0uthern
+sum19977420@pvp.net|x HoboJo x
+sum21286432@pvp.net|DC BolognaMan

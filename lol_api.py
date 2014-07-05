@@ -13,6 +13,16 @@ League of Legends and Riot Games are trademarks or registered trademarks of
 Riot Games,Inc. League of Legends © Riot Games, Inc.
 '''
 
+class Regions():
+    BR='br'
+    EUN='eune'
+    EUW='euw'
+    KR='kr'
+    NA = 'na'
+    OCE='oce'
+    TR='tr'
+    RU='ru'
+
 class Queue():
     def __init__(self, resetTime, rateLimit, verbosity=1):
         self.resetTime = resetTime
@@ -30,7 +40,7 @@ class Queue():
         self.counter += amount
 
 class RiotAPI(object):
-    default_region = 'na'
+    default_region = Regions.NA
     default_api_url = 'http://prod.api.pvp.net/api/lol/{0}/{1}/'
     static_api_url = 'http://prod.api.pvp.net/api/lol/static-data/{0}/{1}/'
 
@@ -71,9 +81,9 @@ class RiotAPI(object):
                 a = 'ERROR: REQUEST TIMEOUT'
                 print a
                 break
-            elif self.queue.counter <= self.queue.rateLimit - 1 or not incr:
+            elif not self.queue or self.queue.counter <= self.queue.rateLimit - 1 or not incr:
                 a = get(uri, params=payload).json()
-                self.queue.addQueue(incr)
+                if self.queue: self.queue.addQueue(incr)
                 break
             else:
                 time.sleep(1)
@@ -87,7 +97,10 @@ class RiotAPI(object):
         ##LEVEL, ID##
         name = name.replace(" ","")
         json_dict = self.get_summoner_by_name(name,region)
-        level = str(json_dict[name.lower()]['summonerLevel'])
+        try:
+            level = str(json_dict[name.lower()]['summonerLevel'])
+        except KeyError:
+            return None
         id = str(json_dict[name.lower()]['id'])
         ##RANK##
         try:
